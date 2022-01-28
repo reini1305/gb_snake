@@ -11,7 +11,7 @@
 #define LEFT  1
 #define UP    2
 #define DOWN  3
-#define UPDATE_SNAKE 15
+#define UPDATE_SNAKE 8
 #define APPLE 144
 
 const uint16_t cgb_palette[4] = {21369, 2737, 6534, 2274};
@@ -26,6 +26,10 @@ uint8_t tail_x;
 uint8_t tail_y;
 uint8_t update=0;
 uint8_t enable_move=0;
+uint8_t new_scx_reg=0;
+uint8_t new_scy_reg=0;
+uint8_t scx_reg=0;
+uint8_t scy_reg=0;
 
 void update_score(void) {
     gotoxy(0,0);
@@ -100,12 +104,25 @@ void update_tail(void) {
     set_vram_byte(get_bkg_xy_addr(tail_x, tail_y), tile);
 }
 
+uint8_t min(uint8_t a, uint8_t b) {
+    return a<b? a:b;
+}
+
+uint8_t max(uint8_t a, uint8_t b) {
+    return a>b? a:b;
+}
+
+void update_scroll(void) {
+    new_scx_reg = min(max(head_x,10)-10,12)*8;
+    new_scy_reg = min(max(head_y,9)-9,14)*8;
+}
+
 void spawn_apple(void) {
-    uint8_t x = (arand() + 128u) / 14 + 1;
-    uint8_t y = (arand() + 128u) / 17 + 2;
+    uint8_t x = min(max(1, (arand() + 128u) / 8), 30);
+    uint8_t y = min(max(2, (arand() + 128u) / 8), 30);
     while (get_bkg_tile_xy(x, y) != 128) {
-        x = (arand() + 128u) / 14 + 1;
-        y = (arand() + 128u) / 17 + 2;
+        x = min(max(1, (arand() + 128u) / 8), 30);
+        y = min(max(2, (arand() + 128u) / 8), 30);
     }
     set_vram_byte(get_bkg_xy_addr(x, y), APPLE);
 }
@@ -147,6 +164,7 @@ uint8_t move_snake(void) {
     // draw head
     set_vram_byte(get_bkg_xy_addr(head_x, head_y), 139 + dir);
     prev_dir = dir;
+    update_scroll();
     return 0;
 }
 
@@ -156,8 +174,8 @@ void game_over(void) {
         for (enable_move = 0; enable_move < 5; enable_move++)
             wait_vbl_done();
     }
-    gotoxy(5,9);
-    printf("Game Over!");
+    gotoxy(11,0);
+    printf("Game Over");
 }
 
 void reset_game(void) {
@@ -165,16 +183,32 @@ void reset_game(void) {
     enable_move = 0;
     cls();
     update_score();
-    set_bkg_tiles(0, 0, 20,18, background_map);
+    set_bkg_tiles(0, 0, 32, 32, background_map);
     update_score();
     spawn_apple();
     dir = RIGHT;
     prev_dir = RIGHT;
-    head_x=0x0D;
+    head_x=0x09;
     head_y=0x08;
-    tail_x=0x0B;
+    tail_x=0x07;
     tail_y=0x08;
+    update_scroll();
     initarand(DIV_REG);
+}
+
+void scanline_isr() {
+    switch (LYC_REG) {
+        case 0: 
+            SCX_REG = 0;
+            SCY_REG = 0;
+            LYC_REG = 7;
+            break;
+        case 7:
+            SCX_REG = scx_reg;
+            SCY_REG = scy_reg;
+            LYC_REG = 0;
+            break;
+    }
 }
 
 void main(void)
@@ -186,6 +220,11 @@ void main(void)
     reset_game();
     set_bkg_palette(0, 1, cgb_palette);
     SHOW_BKG;
+    CRITICAL {
+        STAT_REG |= STATF_LYC; LYC_REG = 0;
+        add_LCD(scanline_isr);
+        set_interrupts(VBL_IFLAG | LCD_IFLAG);
+    }
 
     while(1) {
         i = joypad();
@@ -228,5 +267,16 @@ void main(void)
             update_score();
         }
         wait_vbl_done();
+        // update scroll registers
+        if (scx_reg < new_scx_reg) {
+            scx_reg++;
+        } else if (scx_reg > new_scx_reg) {
+            scx_reg--;
+        }
+        if (scy_reg < new_scy_reg) {
+            scy_reg++;
+        } else if (scy_reg > new_scy_reg) {
+            scy_reg--;
+        }
     }
 }
