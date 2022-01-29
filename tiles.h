@@ -10,11 +10,11 @@
   Compression          : None.
   Counter              : None.
   Tile size            : 8 x 8
-  Tiles                : 0 to 16
+  Tiles                : 0 to 17
 
-  Palette colors       : None.
+  Palette colors       : Included.
   SGB Palette          : None.
-  CGB Palette          : None.
+  CGB Palette          : 4 Bits per entry.
 
   Convert to metatiles : No.
 
@@ -27,6 +27,80 @@
 
 /* Bank of tiles. */
 #define tile_mapBank 0
+
+/* Super Gameboy palette 0 */
+#define tile_mapSGBPal0c0 6076
+#define tile_mapSGBPal0c1 8935
+#define tile_mapSGBPal0c2 6596
+#define tile_mapSGBPal0c3 5344
+
+/* Super Gameboy palette 1 */
+#define tile_mapSGBPal1c0 6076
+#define tile_mapSGBPal1c1 8935
+#define tile_mapSGBPal1c2 6596
+#define tile_mapSGBPal1c3 5344
+
+/* Super Gameboy palette 2 */
+#define tile_mapSGBPal2c0 6076
+#define tile_mapSGBPal2c1 8935
+#define tile_mapSGBPal2c2 6596
+#define tile_mapSGBPal2c3 5344
+
+/* Super Gameboy palette 3 */
+#define tile_mapSGBPal3c0 6076
+#define tile_mapSGBPal3c1 8935
+#define tile_mapSGBPal3c2 6596
+#define tile_mapSGBPal3c3 5344
+
+/* Gameboy Color palette 0 */
+#define tile_mapCGBPal0c0 32767
+#define tile_mapCGBPal0c1 8935
+#define tile_mapCGBPal0c2 6596
+#define tile_mapCGBPal0c3 5344
+
+/* Gameboy Color palette 1 */
+#define tile_mapCGBPal1c0 32767
+#define tile_mapCGBPal1c1 767
+#define tile_mapCGBPal1c2 602
+#define tile_mapCGBPal1c3 5344
+
+/* Gameboy Color palette 2 */
+#define tile_mapCGBPal2c0 32767
+#define tile_mapCGBPal2c1 348
+#define tile_mapCGBPal2c2 6596
+#define tile_mapCGBPal2c3 5344
+
+/* Gameboy Color palette 3 */
+#define tile_mapCGBPal3c0 6076
+#define tile_mapCGBPal3c1 8935
+#define tile_mapCGBPal3c2 6596
+#define tile_mapCGBPal3c3 5344
+
+/* Gameboy Color palette 4 */
+#define tile_mapCGBPal4c0 6076
+#define tile_mapCGBPal4c1 8935
+#define tile_mapCGBPal4c2 6596
+#define tile_mapCGBPal4c3 5344
+
+/* Gameboy Color palette 5 */
+#define tile_mapCGBPal5c0 6076
+#define tile_mapCGBPal5c1 8935
+#define tile_mapCGBPal5c2 6596
+#define tile_mapCGBPal5c3 5344
+
+/* Gameboy Color palette 6 */
+#define tile_mapCGBPal6c0 6076
+#define tile_mapCGBPal6c1 8935
+#define tile_mapCGBPal6c2 6596
+#define tile_mapCGBPal6c3 5344
+
+/* Gameboy Color palette 7 */
+#define tile_mapCGBPal7c0 6076
+#define tile_mapCGBPal7c1 8935
+#define tile_mapCGBPal7c2 6596
+#define tile_mapCGBPal7c3 5344
+/* CGBpalette entries. */
+extern const unsigned char tile_mapCGB[];
 /* Start of tile array. */
 extern const unsigned char tile_map[];
 

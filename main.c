@@ -14,7 +14,6 @@
 #define UPDATE_SNAKE 8
 #define APPLE 144
 
-const uint16_t cgb_palette[4] = {21369, 2737, 6534, 2274};
 const int8_t delta_x[4] = {1, -1, 0, 0};
 const int8_t delta_y[4] = {0, 0, -1, 1};
 uint8_t score;
@@ -30,10 +29,11 @@ uint8_t new_scx_reg=0;
 uint8_t new_scy_reg=0;
 uint8_t scx_reg=0;
 uint8_t scy_reg=0;
+uint8_t num_apples=1;
 
 void update_score(void) {
     gotoxy(0,0);
-    printf("Score: %d", score);
+    printf("Score %d", score);
 }
 
 void update_tail(void) {
@@ -120,10 +120,17 @@ void update_scroll(void) {
 void spawn_apple(void) {
     uint8_t x = min(max(1, (arand() + 128u) / 8), 30);
     uint8_t y = min(max(2, (arand() + 128u) / 8), 30);
-    while (get_bkg_tile_xy(x, y) != 128) {
+    while ((get_bkg_tile_xy(x, y) != 128) || 
+           (get_bkg_tile_xy(x+1, y) != 128) ||
+           (get_bkg_tile_xy(x, y+1) != 128) ||
+           (get_bkg_tile_xy(x-1, y) != 128) ||
+           (get_bkg_tile_xy(x, y-1) != 128)) {
         x = min(max(1, (arand() + 128u) / 8), 30);
         y = min(max(2, (arand() + 128u) / 8), 30);
     }
+    VBK_REG = 1;
+    set_vram_byte(get_bkg_xy_addr(x, y), 2);
+    VBK_REG = 0;
     set_vram_byte(get_bkg_xy_addr(x, y), APPLE);
 }
 
@@ -162,6 +169,9 @@ uint8_t move_snake(void) {
     }
     set_vram_byte(get_bkg_xy_addr(head_x-delta_x[dir], head_y-delta_y[dir]), tile);
     // draw head
+    VBK_REG = 1;
+    set_vram_byte(get_bkg_xy_addr(head_x, head_y), 0);
+    VBK_REG = 0;
     set_vram_byte(get_bkg_xy_addr(head_x, head_y), 139 + dir);
     prev_dir = dir;
     update_scroll();
@@ -174,18 +184,23 @@ void game_over(void) {
         for (enable_move = 0; enable_move < 5; enable_move++)
             wait_vbl_done();
     }
-    gotoxy(11,0);
-    printf("Game Over");
+    gotoxy(10,0);
+    printf("Game Over!");
 }
 
 void reset_game(void) {
     score = 0;
     enable_move = 0;
+    num_apples = 1;
     cls();
     update_score();
-    set_bkg_tiles(0, 0, 32, 32, background_map);
+    VBK_REG = 1;
+    set_bkg_tiles(0, 0, 32, 32, background_mapPLN1);
+    VBK_REG = 0;
+    set_bkg_tiles(0, 0, 32, 32, background_mapPLN0);
     update_score();
     spawn_apple();
+    set_vram_byte(get_bkg_xy_addr(20-num_apples,0), APPLE);
     dir = RIGHT;
     prev_dir = RIGHT;
     head_x=0x09;
@@ -211,14 +226,23 @@ void scanline_isr() {
     }
 }
 
+const uint16_t tile_map_palettes[] =
+{
+  tile_mapCGBPal0c0,tile_mapCGBPal0c1,tile_mapCGBPal0c2,tile_mapCGBPal0c3,
+  tile_mapCGBPal1c0,tile_mapCGBPal1c1,tile_mapCGBPal1c2,tile_mapCGBPal1c3,
+  tile_mapCGBPal2c0,tile_mapCGBPal2c1,tile_mapCGBPal2c2,tile_mapCGBPal2c3,
+};
+
 void main(void)
 {
     uint8_t i;
     
     HIDE_BKG;
-    set_bkg_data(128, 17, tile_map);
+    set_bkg_data(128, 18, tile_map);
     reset_game();
-    set_bkg_palette(0, 1, cgb_palette);
+    set_bkg_palette(0, 1, &tile_map_palettes[0]);
+    set_bkg_palette(1, 1, &tile_map_palettes[4]);
+    set_bkg_palette(2, 1, &tile_map_palettes[8]);
     SHOW_BKG;
     CRITICAL {
         STAT_REG |= STATF_LYC; LYC_REG = 0;
@@ -230,22 +254,23 @@ void main(void)
         i = joypad();
 
         if (i == J_START) {
-            enable_move = enable_move? 0:1;
-            waitpadup();
-        } else if (i == J_LEFT){
             enable_move = 1;
+            waitpadup();
+        } else if (i == J_SELECT && enable_move == 0 && num_apples < 10) {
+            spawn_apple();
+            num_apples++;
+            set_vram_byte(get_bkg_xy_addr(20-num_apples, 0), APPLE);
+            waitpadup();
+        } else if (i == J_LEFT || i == J_B){
             if (dir != RIGHT)
                 dir = LEFT;
-        } else if (i == J_RIGHT){
-            enable_move = 1;
+        } else if (i == J_RIGHT || i == J_A){
             if (dir != LEFT)
                 dir = RIGHT;
         } else if (i == J_DOWN){
-            enable_move = 1;
             if (dir != UP)
                 dir = DOWN;
         } else if (i == J_UP){
-            enable_move = 1;
             if (dir != DOWN)
                 dir = UP;
         }

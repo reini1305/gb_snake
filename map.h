@@ -9,8 +9,8 @@
    Bank          : 0
    Map size      : 32 x 32
    Tile set      : tiles.gbr
-   Plane count   : 1 plane (8 bits)
-   Plane order   : Tiles are continues
+   Plane count   : 2 planes (16 bits)
+   Plane order   : Planes are continues
    Tile offset   : 128
    Split data    : No
 
@@ -24,7 +24,9 @@
 #define background_mapHeight 32
 #define background_mapBank 0
 
-extern const unsigned char background_map[];
+#define background_map background_mapPLN0
+extern const unsigned char background_mapPLN0[];
+extern const unsigned char background_mapPLN1[];
 
 #endif
 
