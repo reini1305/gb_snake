@@ -199,11 +199,15 @@ void show_title(void) {
     set_bkg_tiles(0, 0, 20, 18, title_screenPLN1);
     VBK_REG = 0;
     set_bkg_tiles(0, 0, 20, 18, title_screenPLN0);
-    gotoxy(3,16);
+    gotoxy(3,14);
     if (highscore > 0) {
         printf("Highscore: %d", highscore);
+        gotoxy(16,16);
+        printf("  ");
     } else {
-        printf("Press Start...");
+        printf("Start to play");
+        gotoxy(2,16);
+        printf("Select to add");
     }
     while (J_START != joypad())
     {
@@ -212,19 +216,24 @@ void show_title(void) {
     waitpadup();
 }
 
-void reset_game(void) {
-    show_title();
+void reset_game(uint8_t show_title_screen) {
+    uint8_t i;
+    if (show_title_screen)
+        show_title();
     score = 0;
     enable_move = 0;
-    num_apples = 1;
-    cls();
+    for(i=0; i<20-num_apples; i++){
+        set_vram_byte(get_bkg_xy_addr(i,0), 128);
+    }
     VBK_REG = 1;
     set_bkg_tiles(0, 0, 32, 32, background_mapPLN1);
     VBK_REG = 0;
     set_bkg_tiles(0, 0, 32, 32, background_mapPLN0);
     update_score();
-    spawn_apple();
-    set_vram_byte(get_bkg_xy_addr(20-num_apples,0), APPLE);
+    for(i=0; i<num_apples; i++){
+        spawn_apple();
+        set_vram_byte(get_bkg_xy_addr(19-i,0), APPLE);
+    }
     dir = RIGHT;
     prev_dir = RIGHT;
     head_x=0x09;
@@ -267,7 +276,7 @@ void main(void)
     set_bkg_palette(1, 1, &tile_map_palettes[4]);
     set_bkg_palette(2, 1, &tile_map_palettes[8]);
     SHOW_BKG;
-    reset_game();
+    reset_game(TRUE);
     CRITICAL {
         STAT_REG |= STATF_LYC; LYC_REG = 0;
         add_LCD(scanline_isr);
@@ -280,21 +289,31 @@ void main(void)
         if (i == J_START) {
             enable_move = 1;
             waitpadup();
-        } else if (i == J_SELECT && enable_move == 0 && num_apples < 10) {
-            spawn_apple();
-            num_apples++;
-            set_vram_byte(get_bkg_xy_addr(20-num_apples, 0), APPLE);
+        } else if (i == J_SELECT && enable_move == 0) {
+            if (num_apples >= 10)
+            {
+                num_apples = 1;
+                reset_game(FALSE);
+            } else {
+                spawn_apple();
+                num_apples++;
+                set_vram_byte(get_bkg_xy_addr(20-num_apples, 0), APPLE);
+            }
             waitpadup();
         } else if (i == J_LEFT || i == J_B){
+            enable_move = 1;
             if (dir != RIGHT)
                 dir = LEFT;
         } else if (i == J_RIGHT || i == J_A){
+            enable_move = 1;
             if (dir != LEFT)
                 dir = RIGHT;
         } else if (i == J_DOWN){
+            enable_move = 1;
             if (dir != UP)
                 dir = DOWN;
         } else if (i == J_UP){
+            enable_move = 1;
             if (dir != DOWN)
                 dir = UP;
         }
@@ -310,7 +329,7 @@ void main(void)
                     wait_vbl_done();
                 }
                 waitpadup();
-                reset_game();
+                reset_game(TRUE);
             }
             update = 0;
             update_score();
