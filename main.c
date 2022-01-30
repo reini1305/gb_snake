@@ -4,8 +4,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <rand.h>
-#include "tiles.h"
-#include "map.h"
+#include "res/tiles.h"
+#include "res/map.h"
+#include "res/title.h"
 
 #define RIGHT 0
 #define LEFT  1
@@ -16,7 +17,8 @@
 
 const int8_t delta_x[4] = {1, -1, 0, 0};
 const int8_t delta_y[4] = {0, 0, -1, 1};
-uint8_t score;
+uint16_t score;
+uint16_t highscore = 0;
 uint8_t dir;
 uint8_t prev_dir;
 uint8_t head_x;
@@ -179,6 +181,8 @@ uint8_t move_snake(void) {
 }
 
 void game_over(void) {
+    if (score > highscore)
+        highscore = score;
     while (score--){
         update_tail();
         for (enable_move = 0; enable_move < 5; enable_move++)
@@ -188,12 +192,32 @@ void game_over(void) {
     printf("Game Over!");
 }
 
+void show_title(void) {
+    scx_reg = 0;
+    scy_reg = 0;
+    VBK_REG = 1;
+    set_bkg_tiles(0, 0, 20, 18, title_screenPLN1);
+    VBK_REG = 0;
+    set_bkg_tiles(0, 0, 20, 18, title_screenPLN0);
+    gotoxy(3,16);
+    if (highscore > 0) {
+        printf("Highscore: %d", highscore);
+    } else {
+        printf("Press Start...");
+    }
+    while (J_START != joypad())
+    {
+        wait_vbl_done();
+    }
+    waitpadup();
+}
+
 void reset_game(void) {
+    show_title();
     score = 0;
     enable_move = 0;
     num_apples = 1;
     cls();
-    update_score();
     VBK_REG = 1;
     set_bkg_tiles(0, 0, 32, 32, background_mapPLN1);
     VBK_REG = 0;
@@ -236,14 +260,14 @@ const uint16_t tile_map_palettes[] =
 void main(void)
 {
     uint8_t i;
-    
     HIDE_BKG;
+    printf(" "); // to initialize tile map
     set_bkg_data(128, 18, tile_map);
-    reset_game();
     set_bkg_palette(0, 1, &tile_map_palettes[0]);
     set_bkg_palette(1, 1, &tile_map_palettes[4]);
     set_bkg_palette(2, 1, &tile_map_palettes[8]);
     SHOW_BKG;
+    reset_game();
     CRITICAL {
         STAT_REG |= STATF_LYC; LYC_REG = 0;
         add_LCD(scanline_isr);
