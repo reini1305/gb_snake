@@ -1,6 +1,7 @@
 # Snake for the Gameboy / Gameboy Color
 
 ![Screenshot Color](https://github.com/reini1305/gb_snake/raw/main/images/snake.png)
+![Title Color](https://github.com/reini1305/gb_snake/raw/main/images/title.png)
 
 # Usage
 You can load the ROM onto a flash cart or in an emulator. The key mapping is as follows:
