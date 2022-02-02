@@ -123,15 +123,15 @@ void update_scroll(void) {
 }
 
 void spawn_apple(void) {
-    uint8_t x = min(max(1, (arand() + OFFSET) / 8), 30);
-    uint8_t y = min(max(2, (arand() + OFFSET) / 8), 30);
+    uint8_t x = min(max(2, (arand() + 8) / 8), 29);
+    uint8_t y = min(max(3, (arand() + 8) / 8), 29);
     while ((get_bkg_tile_xy(x, y) != OFFSET) || 
            (get_bkg_tile_xy(x+1, y) == WALL) ||
            (get_bkg_tile_xy(x, y+1) == WALL) ||
            (get_bkg_tile_xy(x-1, y) == WALL) ||
            (get_bkg_tile_xy(x, y-1) == WALL)) {
-        x = min(max(1, (arand() + OFFSET) / 8), 30);
-        y = min(max(2, (arand() + OFFSET) / 8), 30);
+        x = min(max(2, (arand() + 8) / 8), 29);
+        y = min(max(3, (arand() + 8) / 8), 29);
     }
     VBK_REG = 1;
     set_vram_byte(get_bkg_xy_addr(x, y), 2);
