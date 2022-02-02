@@ -7,6 +7,7 @@
 #include "res/tiles.h"
 #include "res/map.h"
 #include "res/title.h"
+#include "PrintCmd.h"
 
 #define RIGHT 0
 #define LEFT  1
@@ -213,6 +214,12 @@ void show_title(void) {
     }
     while (J_START != joypad())
     {
+        if ( joypad() == J_SELECT ){
+            if (!(GetPrinterStatus() && CheckLinkCable())) {
+                PrinterInit();
+                PrintScreen(TRUE);
+            }
+        }
         wait_vbl_done();
     }
     waitpadup();
