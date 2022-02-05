@@ -10,7 +10,7 @@ OBJS       = $(CSOURCES:%.c=$(OBJDIR)/%.o) $(ASMS:%.s=$(OBJDIR)/%.o)
 BINS	   = $(OBJDIR)/snake.gb
 
 # audio-system memory located in  0xdf80 -> 0xdfff
-LINKERFLAGS = '-Wl-g .STACK=0xdf80'
+LINKERFLAGS = '-Wl-g .STACK=0xdf80' -Wm-yn"GB_SNEK"
 
 all:	$(BINS)
 
