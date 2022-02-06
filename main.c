@@ -15,7 +15,7 @@
 #define SFX_APPLE_INC 0x4 
 
 //extern const unsigned char audio_sys[];
-uint8_t play_audio = 0;
+uint8_t play_audio = FALSE;
 
 #define RIGHT 0
 #define LEFT  1
@@ -221,6 +221,8 @@ void show_title(void) {
         printf("  ");
     } else {
         printf("Start to play");
+        gotoxy(2,15);
+        printf("B toggles music");
         gotoxy(2,16);
         printf("Select to add");
     }
@@ -231,6 +233,10 @@ void show_title(void) {
                 PrinterInit();
                 PrintScreen(TRUE);
             }
+        }
+        if ( joypad() == J_B ){
+            play_audio = play_audio? FALSE:TRUE;
+            waitpadup();
         }
         wait_vbl_done();
     }
@@ -282,8 +288,11 @@ void scanline_isr() {
 
 void vblank_isr() {
     if (play_audio) {
-        Audio_FrameProcess();
+        Audio_Music_Resume();
+    } else {
+        Audio_Music_Stop();
     }
+    Audio_FrameProcess();
 }
 
 const uint16_t tile_map_palettes[] =
@@ -303,7 +312,6 @@ void main(void)
     set_bkg_palette(1, 1, &tile_map_palettes[4]);
     set_bkg_palette(2, 1, &tile_map_palettes[8]);
     SHOW_BKG;
-    reset_game(TRUE);
     CRITICAL {
         STAT_REG |= STATF_LYC; LYC_REG = 0;
         add_LCD(scanline_isr);
@@ -312,10 +320,9 @@ void main(void)
 
         Audio_Init();
         Audio_Music_Play(0);
-        play_audio = 1;
+        play_audio = TRUE;
     }
-
-
+    reset_game(TRUE);
 
     while(1) {
         i = joypad();

@@ -36,7 +36,7 @@ $(OBJDIR)/%.o: $(SOUNDDIR)/%.s
 	
 # Link the compiled object files into a .gb ROM file
 $(BINS):	$(OBJS)
-	$(CC) $(LCCFLAGS) -v $(LINKERFLAGS) -Wm-yC -o $(BINS) $(OBJS)
+	$(CC) $(LCCFLAGS) $(LINKERFLAGS) -Wm-yC -o $(BINS) $(OBJS)
 
 clean:
 	rm -f  $(OBJDIR)/*.*
