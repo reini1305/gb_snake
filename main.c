@@ -9,6 +9,14 @@
 #include "res/title.h"
 #include "PrintCmd.h"
 
+#include "sound/sound.h"
+#define SFX_APPLE_EAT 0x11
+#define SFX_CRASH 0xC
+#define SFX_APPLE_INC 0x4 
+
+//extern const unsigned char audio_sys[];
+uint8_t play_audio = 0;
+
 #define RIGHT 0
 #define LEFT  1
 #define UP    2
@@ -155,6 +163,7 @@ uint8_t move_snake(void) {
     } 
     if (tile == APPLE) {
         score++;
+        Audio_SFX_Play(SFX_APPLE_EAT);
         spawn_apple();
     } else {
         update_tail();
@@ -188,10 +197,12 @@ void game_over(void) {
     if (score > highscore)
         highscore = score;
     while (score--){
+        Audio_SFX_Play(SFX_CRASH);
         update_tail();
         for (enable_move = 0; enable_move < 5; enable_move++)
             wait_vbl_done();
     }
+    Audio_SFX_Play(SFX_CRASH);
     gotoxy(10,0);
     printf("Game Over!");
 }
@@ -269,6 +280,12 @@ void scanline_isr() {
     }
 }
 
+void vblank_isr() {
+    if (play_audio) {
+        Audio_FrameProcess();
+    }
+}
+
 const uint16_t tile_map_palettes[] =
 {
   tile_mapCGBPal0c0,tile_mapCGBPal0c1,tile_mapCGBPal0c2,tile_mapCGBPal0c3,
@@ -290,8 +307,15 @@ void main(void)
     CRITICAL {
         STAT_REG |= STATF_LYC; LYC_REG = 0;
         add_LCD(scanline_isr);
+        add_VBL(vblank_isr);
         set_interrupts(VBL_IFLAG | LCD_IFLAG);
+
+        Audio_Init();
+        Audio_Music_Play(0);
+        play_audio = 1;
     }
+
+
 
     while(1) {
         i = joypad();
@@ -300,6 +324,7 @@ void main(void)
             enable_move = 1;
             waitpadup();
         } else if (i == J_SELECT && enable_move == 0) {
+            Audio_SFX_Play(SFX_APPLE_INC);
             if (num_apples >= 10)
             {
                 num_apples = 1;

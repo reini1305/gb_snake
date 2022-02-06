@@ -1,10 +1,16 @@
-CC	= ../bin/lcc -Wa-l -Wl-m -Wl-j
+CC	= $(GBDKDIR)bin/lcc -Wa-l -Wl-m -Wl-j
 
 OBJDIR     = obj
+RESDIRS     = res sound
 RESDIR     = res
-CSOURCES   = $(foreach dir,./,$(notdir $(wildcard $(dir)/*.c))) $(foreach dir,$(RESDIR),$(notdir $(wildcard $(dir)/*.c)))
-OBJS       = $(CSOURCES:%.c=$(OBJDIR)/%.o)
+SOUNDDIR = sound
+CSOURCES   = $(foreach dir,./,$(notdir $(wildcard $(dir)/*.c))) $(foreach dir,$(RESDIRS),$(notdir $(wildcard $(dir)/*.c)))
+ASMS      = $(foreach dir,.,$(notdir $(wildcard $(dir)/*.s))) $(foreach dir,$(RESDIRS),$(notdir $(wildcard $(dir)/*.s)))
+OBJS       = $(CSOURCES:%.c=$(OBJDIR)/%.o) $(ASMS:%.s=$(OBJDIR)/%.o)
 BINS	   = $(OBJDIR)/snake.gb
+
+# audio-system memory located in  0xdf80 -> 0xdfff
+LINKERFLAGS = '-Wl-g .STACK=0xdf80'
 
 all:	$(BINS)
 
@@ -16,14 +22,26 @@ compile.bat: Makefile
 $(OBJDIR)/%.o:	%.c
 	$(CC) $(LCCFLAGS) -c -o $@ $<
 
+$(OBJDIR)/%.o: %.s
+	$(CC) $(LCCFLAGS) -c -o $@ $<
+
 # Compile .c files in "res/" to .o object files
 $(OBJDIR)/%.o:	$(RESDIR)/%.c
 	$(CC) $(LCCFLAGS) -c -o $@ $<
 
+$(OBJDIR)/%.o:	$(SOUNDDIR)/%.c
+	$(CC) $(LCCFLAGS) -c -o $@ $<
+$(OBJDIR)/%.o: $(SOUNDDIR)/%.s
+	$(CC) $(LCCFLAGS) -c -o $@ $<
+	
 # Link the compiled object files into a .gb ROM file
 $(BINS):	$(OBJS)
-	$(CC) $(LCCFLAGS) -Wm-yC -o $(BINS) $(OBJS)
+	$(CC) $(LCCFLAGS) -v $(LINKERFLAGS) -Wm-yC -o $(BINS) $(OBJS)
 
 clean:
 	rm -f  $(OBJDIR)/*.*
+
+debug:
+	echo $(CSOURCES)
+	echo $(ASMS)
 
