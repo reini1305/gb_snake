@@ -48,10 +48,12 @@ typedef struct snake_ {
 } snake;
 snake snakes[2];
 
-void send_command(uint8_t command) {
-    if (multiplayer) {
+void send_command(uint8_t command, uint8_t force) {
+    static uint8_t prev_command = UNKNOWN;
+    if (multiplayer && command != prev_command || force) {
         _io_out = command;
         send_byte();
+        prev_command = command;
     }
 }
 
@@ -61,7 +63,7 @@ void update_score(void) {
         printf("S2 %d", snakes[1].score);
         gotoxy(0,0);
         printf("S1 %d", snakes[0].score);
-        send_command(snakes[player].score + UNKNOWN);
+        //send_command(snakes[player].score + UNKNOWN);
     } else {
         gotoxy(0,0);
         printf("Score %d", snakes[player].score);
@@ -211,22 +213,36 @@ uint8_t move_snake(uint8_t player) {
     return 0;
 }
 
-void game_over(void) {
+void game_over(uint8_t who_lost) {
+    uint8_t i_lost = (player == 0 && (who_lost & 0x01)) || (player == 1 && (who_lost & 0x02));
+    uint8_t other_lost = (player == 0 && (who_lost & 0x02)) || (player == 1 && (who_lost & 0x01));
     if (snakes[player].score > highscore)
         highscore = snakes[player].score;
-    while (snakes[player].score--){
-        update_tail(player);
-        Audio_SFX_Play(SFX_CRASH);
-        for (enable_move = 0; enable_move < 5; enable_move++)
+    
+    if (i_lost) {
+        while (snakes[player].score--){
+            update_tail(player);
+            Audio_SFX_Play(SFX_CRASH);
+            //for (enable_move = 0; enable_move < 5; enable_move++) // delay update_tail
             wait_vbl_done();
+        }
+        if (multiplayer) {
+            gotoxy(15,0);
+            printf("Lost!");
+        } else {
+            gotoxy(10,0);
+            printf("Game Over!");
+        }
     }
-    Audio_SFX_Play(SFX_CRASH);
-    if (multiplayer) {
+    if (other_lost) {
+        other_lost = player==0? 1:0;
+        while (snakes[other_lost].score--){
+            update_tail(other_lost);
+            Audio_SFX_Play(SFX_CRASH);
+            wait_vbl_done();
+        }
         gotoxy(15,0);
-        printf("Over!");
-    } else {
-        gotoxy(10,0);
-        printf("Game Over!");
+        printf("Won!");
     }
 }
 
@@ -237,7 +253,7 @@ void show_title(void) {
     set_bkg_tiles(0, 0, 20, 18, title_screenPLN1);
     VBK_REG = 0;
     set_bkg_tiles(0, 0, 20, 18, title_screenPLN0);
-    gotoxy(3,14);
+    gotoxy(3,15);
     if (highscore > 0) {
         printf("Highscore: %d", highscore);
         gotoxy(16,16);
@@ -260,7 +276,12 @@ void show_title(void) {
             receive_byte();
         }
         if ((multiplayer == FALSE || (multiplayer == TRUE && player == 0)) && J_START == joypad()) {
+            waitpadup();
             break;
+        }
+        if (multiplayer) {
+            gotoxy(2,14);
+            printf("You are player %d!",player+1);
         }
         if (_io_status == IO_IDLE) {
             multiplayer = TRUE;
@@ -268,12 +289,12 @@ void show_title(void) {
                 synced = TRUE;
                 initarand(_io_in);
                 player = 1; // we were late in the game
-                gotoxy(2,14);
-                printf("Wait for snek 2!");
-            } else {
+            } else if (_io_in == START){
                 // other player pressed start
                 return;
             }
+        }
+        if (multiplayer) {
             receive_byte();
         }
         if ( joypad() == J_B ){
@@ -284,7 +305,7 @@ void show_title(void) {
     }
     waitpadup();
     if (player == 0){
-        send_command(START);
+        send_command(START, TRUE);
     }
 }
 
@@ -390,7 +411,6 @@ void process_link(void) {
             add_apple();
             break;
         default:
-            snakes[other].score = received - UNKNOWN;
             break;
     }
 }
@@ -427,68 +447,7 @@ void main(void)
     else
         multiplayer = FALSE;
     reset_game(TRUE);
-    receive_byte();
     while(1) {
-        i = joypad();
-        if (multiplayer){ 
-            if (_io_status == IO_IDLE) {
-                // we have received something
-                process_link();
-                receive_byte();
-            }
-            if (_io_status == IO_ERROR) {
-                receive_byte();
-            }
-        }
-        if ((multiplayer && player == 1 || !multiplayer) && i == J_START) {
-            enable_move = 1;
-            send_command(START);
-        } else if (i == J_SELECT && enable_move == 0) {
-            add_apple();
-            waitpadup();
-        } else if (i == J_LEFT && enable_move == 1){
-            if (snakes[player].dir != RIGHT) {
-               snakes[player].dir = LEFT;
-                send_command(LEFT);
-            }
-        } else if (i == J_RIGHT && enable_move == 1){
-            if (snakes[player].dir != LEFT) {
-                snakes[player].dir = RIGHT;
-                send_command(RIGHT);
-            }
-        } else if (i == J_DOWN && enable_move == 1){
-            if (snakes[player].dir != UP) {
-                snakes[player].dir = DOWN;
-                send_command(DOWN);
-            }
-        } else if (i == J_UP && enable_move == 1){
-            if (snakes[player].dir != DOWN) {
-                snakes[player].dir = UP;
-                send_command(UP);
-            }
-        }
-        if (enable_move) {
-            update++;
-        }
-        if (update == UPDATE_SNAKE) {
-            if (move_snake(0) || (multiplayer && move_snake(1))) {
-                game_over();
-                if (player == 0) {
-                    waitpadup();
-                    while (!joypad())
-                    {
-                        wait_vbl_done();
-                    }
-                    waitpadup();
-                    send_command(START);
-                } else {
-                    while (_io_status == IO_RECEIVING);
-                }
-                reset_game(TRUE);
-            }
-            update = 0;
-            update_score();
-        }
         wait_vbl_done();
         // update scroll registers
         if (scx_reg < new_scx_reg) {
@@ -500,6 +459,73 @@ void main(void)
             scy_reg++;
         } else if (scy_reg > new_scy_reg) {
             scy_reg--;
+        }
+
+        i = joypad();
+
+        if (multiplayer){ 
+            if (_io_status == IO_IDLE) {
+                // we have received something
+                process_link();
+            }
+            receive_byte();
+        }
+
+        if (enable_move) {
+            update++;
+        }
+        if (update == UPDATE_SNAKE) { 
+            uint8_t go;
+            go = move_snake(0);
+            if (multiplayer) {
+                go += 2*move_snake(1);
+            }
+            if (go) {
+                game_over(go);
+                waitpadup();
+                if (player == 0) {   
+                    while (!joypad())
+                    {
+                        wait_vbl_done();
+                    }
+                    waitpadup();
+                    send_command(START, TRUE);
+                } else {
+                    while (_io_status == IO_RECEIVING);
+                }
+                reset_game(TRUE);
+            }
+            update = 0;
+            update_score();
+        }
+        
+        if ((multiplayer && player == 1 || !multiplayer) && i == J_START) {
+            enable_move = 1;
+            waitpadup();
+            send_command(START, TRUE);
+        } else if (i == J_SELECT && enable_move == 0) {
+            add_apple();
+            waitpadup();
+        } else if (i == J_LEFT && enable_move == 1){
+            if (snakes[player].prev_dir != RIGHT) {
+               snakes[player].dir = LEFT;
+                send_command(LEFT, FALSE);
+            }
+        } else if (i == J_RIGHT && enable_move == 1){
+            if (snakes[player].prev_dir != LEFT) {
+                snakes[player].dir = RIGHT;
+                send_command(RIGHT, FALSE);
+            }
+        } else if (i == J_DOWN && enable_move == 1){
+            if (snakes[player].prev_dir != UP) {
+                snakes[player].dir = DOWN;
+                send_command(DOWN, FALSE);
+            }
+        } else if (i == J_UP && enable_move == 1){
+            if (snakes[player].prev_dir != DOWN) {
+                snakes[player].dir = UP;
+                send_command(UP, FALSE);
+            }
         }
     }
 }
