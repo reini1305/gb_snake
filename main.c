@@ -6,6 +6,7 @@
 #include <rand.h>
 #include "res/tiles.h"
 #include "res/map.h"
+#include "res/battlemap.h"
 #include "res/title.h"
 #include "PrintCmd.h"
 #include "common.h"
@@ -320,9 +321,9 @@ void reset_game(uint8_t show_title_screen) {
         set_vram_byte(get_bkg_xy_addr(i,0), OFFSET);
     }
     VBK_REG = 1;
-    set_bkg_tiles(0, 0, 32, 32, background_mapPLN1);
+    set_bkg_tiles(0, 0, 32, 32, multiplayer? background_map_battlePLN1 : background_mapPLN1);
     VBK_REG = 0;
-    set_bkg_tiles(0, 0, 32, 32, background_mapPLN0);
+    set_bkg_tiles(0, 0, 32, 32, multiplayer? background_map_battlePLN0 : background_mapPLN0);
     update_score();
     for(i=0; i<num_apples; i++){
         spawn_apple();
@@ -342,12 +343,6 @@ void reset_game(uint8_t show_title_screen) {
     snakes[1].tail_y=27;
     update_scroll();
     receive_byte();
-    if (multiplayer == FALSE) {
-        //delete second snake
-        set_vram_byte(get_bkg_xy_addr(snakes[1].head_x,snakes[1].head_y), OFFSET);
-        set_vram_byte(get_bkg_xy_addr(snakes[1].tail_x,snakes[1].tail_y), OFFSET);
-        set_vram_byte(get_bkg_xy_addr(snakes[1].tail_x-1,snakes[1].tail_y), OFFSET);
-    }
 }
 
 void scanline_isr() {
