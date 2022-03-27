@@ -49,12 +49,12 @@ typedef struct snake_ {
 } snake;
 snake snakes[2];
 
-void send_command(uint8_t command, uint8_t force) {
-    static uint8_t prev_command = UNKNOWN;
-    if (multiplayer && command != prev_command || force) {
+void send_command(uint8_t command, uint8_t now) {
+    if (multiplayer) {
         _io_out = command;
-        send_byte();
-        prev_command = command;
+        if (now) {
+            send_byte();
+        }
     }
 }
 
@@ -64,7 +64,6 @@ void update_score(void) {
         printf("S2 %d", snakes[1].score);
         gotoxy(0,0);
         printf("S1 %d", snakes[0].score);
-        //send_command(snakes[player].score + UNKNOWN);
     } else {
         gotoxy(0,0);
         printf("Score %d", snakes[player].score);
@@ -214,9 +213,10 @@ uint8_t move_snake(uint8_t player) {
     return 0;
 }
 
-void game_over(uint8_t who_lost) {
+inline void show_game_over(uint8_t who_lost) {
     uint8_t i_lost = (player == 0 && (who_lost & 0x01)) || (player == 1 && (who_lost & 0x02));
     uint8_t other_lost = (player == 0 && (who_lost & 0x02)) || (player == 1 && (who_lost & 0x01));
+    uint8_t both_lost = i_lost && other_lost;
     if (snakes[player].score > highscore)
         highscore = snakes[player].score;
     
@@ -224,7 +224,6 @@ void game_over(uint8_t who_lost) {
         while (snakes[player].score--){
             update_tail(player);
             Audio_SFX_Play(SFX_CRASH);
-            //for (enable_move = 0; enable_move < 5; enable_move++) // delay update_tail
             wait_vbl_done();
         }
         if (multiplayer) {
@@ -244,6 +243,10 @@ void game_over(uint8_t who_lost) {
         }
         gotoxy(15,0);
         printf("Won!");
+    }
+    if (both_lost) {
+        gotoxy(15,0);
+        printf("Draw!");
     }
 }
 
@@ -274,7 +277,6 @@ void show_title(void) {
                 PrinterInit();
                 PrintScreen(TRUE);
             }
-            receive_byte();
         }
         if ((multiplayer == FALSE || (multiplayer == TRUE && player == 0)) && J_START == joypad()) {
             waitpadup();
@@ -290,7 +292,7 @@ void show_title(void) {
                 synced = TRUE;
                 initarand(_io_in);
                 player = 1; // we were late in the game
-            } else if (_io_in == START){
+            } else if (_io_in == GO){
                 // other player pressed start
                 return;
             }
@@ -306,7 +308,7 @@ void show_title(void) {
     }
     waitpadup();
     if (player == 0){
-        send_command(START, TRUE);
+        send_command(GO, TRUE);
     }
 }
 
@@ -342,7 +344,17 @@ void reset_game(uint8_t show_title_screen) {
     snakes[1].tail_x=23;
     snakes[1].tail_y=27;
     update_scroll();
-    receive_byte();
+    if (multiplayer == FALSE) {
+        //delete second snake
+        set_vram_byte(get_bkg_xy_addr(snakes[1].head_x,snakes[1].head_y), OFFSET);
+        set_vram_byte(get_bkg_xy_addr(snakes[1].tail_x,snakes[1].tail_y), OFFSET);
+        set_vram_byte(get_bkg_xy_addr(snakes[1].tail_x-1,snakes[1].tail_y), OFFSET);
+    } else {
+        if (player == 0)
+            send_command(RIGHT, FALSE);
+        else
+            send_command(LEFT, FALSE);
+    }
 }
 
 void scanline_isr() {
@@ -389,7 +401,7 @@ void add_apple(void) {
     }
 }
 
-void process_link(void) {
+inline void process_link(void) {
     uint8_t other = player == 0? 1:0;
     uint8_t received = _io_in;
     switch (received) {
@@ -407,6 +419,30 @@ void process_link(void) {
             break;
         default:
             break;
+    }
+}
+
+inline void sync(void) {
+    if (multiplayer) {
+        if (player == 0) {
+            // We start by sending our current command/direction
+            send_byte();
+            while (_io_status == IO_SENDING);
+            // Now we wait for the answer of player 1
+            receive_byte();
+            while (_io_status == IO_RECEIVING);
+            process_link();
+            send_command(UNKNOWN, FALSE);
+        } else {
+            // We are the passive one and wait until we received a command
+            while (_io_status == IO_RECEIVING);
+            process_link();
+            // Now we send our update
+            send_byte();
+            while (_io_status == IO_SENDING);
+            // And go back to listening
+            receive_byte();
+        }
     }
 }
 
@@ -442,6 +478,10 @@ void main(void)
     else
         multiplayer = FALSE;
     reset_game(TRUE);
+    if (multiplayer && player == 1) {
+        // player 1 is passive and listening for the sync pulse from player 0
+        receive_byte();
+    }
     while(1) {
         wait_vbl_done();
         // update scroll registers
@@ -457,53 +497,18 @@ void main(void)
         }
 
         i = joypad();
-
-        if (multiplayer){ 
-            if (_io_status == IO_IDLE) {
-                // we have received something
-                process_link();
-            }
-            receive_byte();
-        }
-
-        if (enable_move) {
-            update++;
-        }
-        if (update == UPDATE_SNAKE) { 
-            uint8_t go;
-            go = move_snake(0);
-            if (multiplayer) {
-                go += 2*move_snake(1);
-            }
-            if (go) {
-                game_over(go);
-                waitpadup();
-                if (player == 0) {   
-                    while (!joypad())
-                    {
-                        wait_vbl_done();
-                    }
-                    waitpadup();
-                    send_command(START, TRUE);
-                } else {
-                    while (_io_status == IO_RECEIVING);
-                }
-                reset_game(TRUE);
-            }
-            update = 0;
-            update_score();
-        }
-        
-        if ((multiplayer && player == 1 || !multiplayer) && i == J_START) {
+       
+        if ((multiplayer && player == 0 || !multiplayer) && i == J_START) {
             enable_move = 1;
             waitpadup();
-            send_command(START, TRUE);
+            send_command(START, FALSE);
         } else if (i == J_SELECT && enable_move == 0) {
             add_apple();
             waitpadup();
+            send_command(SELECT, FALSE);
         } else if (i == J_LEFT && enable_move == 1){
             if (snakes[player].prev_dir != RIGHT) {
-               snakes[player].dir = LEFT;
+                snakes[player].dir = LEFT;
                 send_command(LEFT, FALSE);
             }
         } else if (i == J_RIGHT && enable_move == 1){
@@ -521,6 +526,38 @@ void main(void)
                 snakes[player].dir = UP;
                 send_command(UP, FALSE);
             }
+        }
+        // both players come here and sync up the state of the snakes before updating the
+        // field
+        sync();
+        if (enable_move) {
+            update++;
+        }
+        if (update == UPDATE_SNAKE) { 
+            uint8_t game_over;
+            game_over = move_snake(0);
+            if (multiplayer) {
+                game_over += 2*move_snake(1);
+            }
+            if (game_over) {
+                show_game_over(game_over);
+                waitpadup();
+                if (player == 0) {   
+                    while (joypad() != J_START)
+                    {
+                        wait_vbl_done();
+                    }
+                    waitpadup();
+                    send_command(GO, TRUE);
+                } else {
+                    // wait for the start command from player 1
+                    while (_io_status == IO_RECEIVING);
+                    receive_byte();
+                }
+                reset_game(TRUE);
+            }
+            update = 0;
+            update_score();
         }
     }
 }
