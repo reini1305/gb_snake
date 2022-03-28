@@ -428,6 +428,11 @@ inline void sync(void) {
             // We start by sending our current command/direction
             send_byte();
             while (_io_status == IO_SENDING);
+            if (_io_status == IO_ERROR) {
+                 // We send again  our current command/direction
+                send_byte();
+                while (_io_status == IO_SENDING);
+            }
             // Now we wait for the answer of player 1
             receive_byte();
             while (_io_status == IO_RECEIVING);
