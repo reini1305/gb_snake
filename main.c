@@ -138,15 +138,15 @@ void update_tail(uint8_t player) {
     set_vram_byte(get_bkg_xy_addr(snakes[player].tail_x, snakes[player].tail_y), tile);
 }
 
-uint8_t min(uint8_t a, uint8_t b) {
+inline uint8_t min(uint8_t a, uint8_t b) {
     return a<b? a:b;
 }
 
-uint8_t max(uint8_t a, uint8_t b) {
+inline uint8_t max(uint8_t a, uint8_t b) {
     return a>b? a:b;
 }
 
-void update_scroll(void) {
+inline void update_scroll(void) {
     new_scx_reg = min(max(snakes[player].head_x,10)-10,12)*8;
     new_scy_reg = min(max(snakes[player].head_y,9)-9,14)*8;
 }
@@ -423,6 +423,7 @@ inline void process_link(void) {
 }
 
 inline void sync(void) {
+    uint8_t retries = 1;
     if (multiplayer) {
         if (player == 0) {
             // We start by sending our current command/direction
@@ -435,7 +436,7 @@ inline void sync(void) {
             }
             // Now we wait for the answer of player 1
             receive_byte();
-            while (_io_status == IO_RECEIVING);
+            while (_io_status == IO_RECEIVING && retries++);
             process_link();
             send_command(UNKNOWN, FALSE);
         } else {
@@ -445,6 +446,11 @@ inline void sync(void) {
             // Now we send our update
             send_byte();
             while (_io_status == IO_SENDING);
+            if (_io_status == IO_ERROR) {
+                 // We send again our current command/direction
+                send_byte();
+                while (_io_status == IO_SENDING);
+            }
             // And go back to listening
             receive_byte();
         }
@@ -503,11 +509,11 @@ void main(void)
 
         i = joypad();
        
-        if ((multiplayer && player == 0 || !multiplayer) && i == J_START) {
+        if ((multiplayer && player == 0 || !multiplayer) && i == J_START && enable_move == 0) {
             enable_move = 1;
             waitpadup();
             send_command(START, FALSE);
-        } else if (i == J_SELECT && enable_move == 0) {
+        } else if (i == J_SELECT && enable_move == 0 && (multiplayer && player == 0 || !multiplayer)) {
             add_apple();
             waitpadup();
             send_command(SELECT, FALSE);
