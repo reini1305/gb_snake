@@ -138,15 +138,15 @@ void update_tail(uint8_t player) {
     set_vram_byte(get_bkg_xy_addr(snakes[player].tail_x, snakes[player].tail_y), tile);
 }
 
-inline uint8_t min(uint8_t a, uint8_t b) {
+uint8_t min(uint8_t a, uint8_t b) {
     return a<b? a:b;
 }
 
-inline uint8_t max(uint8_t a, uint8_t b) {
+uint8_t max(uint8_t a, uint8_t b) {
     return a>b? a:b;
 }
 
-inline void update_scroll(void) {
+void update_scroll(void) {
     new_scx_reg = min(max(snakes[player].head_x,10)-10,12)*8;
     new_scy_reg = min(max(snakes[player].head_y,9)-9,14)*8;
 }
@@ -423,7 +423,7 @@ inline void process_link(void) {
 }
 
 inline void sync(void) {
-    uint8_t retries = 1;
+    uint8_t retries = 0;
     if (multiplayer) {
         if (player == 0) {
             // We start by sending our current command/direction
@@ -436,9 +436,10 @@ inline void sync(void) {
             }
             // Now we wait for the answer of player 1
             receive_byte();
-            while (_io_status == IO_RECEIVING && retries++);
+            while (_io_status == IO_RECEIVING && ++retries);
             process_link();
-            send_command(UNKNOWN, FALSE);
+            if (!retries)
+                send_command(UNKNOWN, FALSE);
         } else {
             // We are the passive one and wait until we received a command
             while (_io_status == IO_RECEIVING);
