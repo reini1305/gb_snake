@@ -26,7 +26,8 @@ const uint16_t tile_map_palettes[] =
   tile_mapCGBPal2c0,tile_mapCGBPal2c1,tile_mapCGBPal2c2,tile_mapCGBPal2c3,
 };
 
-void scanline_isr() {
+void scanline_isr(void) {
+    while(STAT_REG & STATF_BUSY);
     switch (LYC_REG) {
         case 0: 
             SCX_REG = 0;
@@ -41,7 +42,7 @@ void scanline_isr() {
     }
 }
 
-void vblank_isr() {
+void vblank_isr(void) {
     if (play_audio) {
         Audio_Music_Resume();
     } else {
@@ -72,7 +73,8 @@ void main(void)
         play_audio = TRUE;
     }
     // Try to send our random seed to the other player
-    i = DIV_REG;
+    // i = DIV_REG;
+    i = 0;
     initarand(i);
     _io_out = i;
     send_byte();
